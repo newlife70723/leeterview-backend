@@ -1,0 +1,4 @@
+# .gitignore for .NET
+bin/
+obj/
+.env
