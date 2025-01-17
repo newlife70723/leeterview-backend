@@ -1,0 +1,27 @@
+{
+  "name": "leeterview-backend",
+  "version": "1.0.0",
+  "description": "The backend in project of leeterview",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/newlife70723/leeterview-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/newlife70723/leeterview-backend/issues"
+  },
+  "homepage": "https://github.com/newlife70723/leeterview-backend#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "husky": "^8.0.0"
+  }
+}
