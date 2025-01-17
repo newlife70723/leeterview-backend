@@ -26,26 +26,44 @@ Leeterview's backend service is developed with **.NET Core Web API**, providing 
     docker build -t leeterview-frontend .
     docker run -p 3000:3000 leeterview-frontend
 
+
 ## 🛠️ Git Hooks - Husky Setup
-1. Install Husky and Commitlint:
-    npm install husky @commitlint/{config-conventional,cli} --save-dev
 
-2. Enable Husky:
-    npx husky install
+### **1️. Install Husky and Commitlint**
 
-3. Auto-install Git Hooks:
-Add this to package.json:
-    "scripts": {
-        "prepare": "husky install"
-    }
+```bash
+npm install husky @commitlint/{config-conventional,cli} --save-dev
+```
 
-4. Add Commit Message Linting:
-    npx husky add .husky/commit-msg "npx --no-install commitlint --edit $1"
+### **2️. Enable Husky**
 
-5. Create commitlint.config.js:
-    module.exports = {
-    extends: ['@commitlint/config-conventional'],
-    };
+```bash
+npx husky install
+```
+
+### **3️. Auto-install Git Hooks**
+
+Add this to **`package.json`**:
+
+```json
+"scripts": {
+  "prepare": "husky install"
+}
+```
+
+### **4️. Add Commit Message Linting**
+
+```bash
+npx husky add .husky/commit-msg "npx --no-install commitlint --edit $1"
+```
+
+### **5️. Create `commitlint.config.js`**
+
+```javascript
+module.exports = {
+  extends: ['@commitlint/config-conventional'],
+};
+```
 
 ## 🏷️ Git Branch Policy
 
