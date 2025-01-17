@@ -13,3 +13,6 @@ obj/
 
 # 系統檔案
 .DS_Store
+
+# 忽略 node_modules
+node_modules/
