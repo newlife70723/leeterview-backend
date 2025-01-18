@@ -14,6 +14,10 @@ WORKDIR /app
 # 複製建置結果
 COPY --from=build /app/out .
 
+# 🔥 根據環境自動切換（預設 Development）
+ARG ENVIRONMENT=Development
+ENV ASPNETCORE_ENVIRONMENT=$ENVIRONMENT
+
 # 開放 API 服務埠口
 EXPOSE 5000
 
