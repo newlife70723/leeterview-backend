@@ -17,7 +17,7 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("DevCors",
-            policy => policy.AllowAnyOrigin()
+            policy => policy.AllowAnyOrigin() // 開發環境允許所有來源
                             .AllowAnyHeader()
                             .AllowAnyMethod());
     });
@@ -29,7 +29,7 @@ else
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("ProdCors",
-            policy => policy.WithOrigins("https://leeterview.net")  // 正式環境網址
+            policy => policy.WithOrigins("https://leeterview.net") // 正式環境僅允許前端網域
                             .AllowAnyHeader()
                             .AllowAnyMethod());
     });
@@ -40,23 +40,20 @@ else
 var app = builder.Build();
 
 // 🔥 啟用 CORS
-app.UseCors("AllowFrontend");
-
-// ✅ 啟用 Swagger（僅在開發環境）
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("DevCors");
 }
 else
 {
-    app.UseHttpsRedirection();  // 正式環境啟用 HTTPS
     app.UseCors("ProdCors");
+}
+
+// ✅ 啟用 Swagger（僅在開發環境）
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 var summaries = new[]
