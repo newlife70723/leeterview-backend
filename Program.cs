@@ -50,7 +50,6 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseCors("ProdCors");
-    app.UseHttpsRedirection();  // 正式環境啟用 HTTPS
 }
 
 // ✅ 啟用 Swagger（僅在開發環境）
