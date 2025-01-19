@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 // ✅ 正確加入 Swagger/OpenAPI 支援
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddAuthorization();
 
 // 註冊 DbContext 並設定資料庫連線字串
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
