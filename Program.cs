@@ -39,9 +39,6 @@ else
 
 var app = builder.Build();
 
-// 🔥 啟用 CORS
-app.UseCors("AllowFrontend");
-
 // ✅ 啟用 Swagger（僅在開發環境）
 if (app.Environment.IsDevelopment())
 {
@@ -49,15 +46,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// 🔥 中間件正確順序
+app.UseHttpsRedirection();  // 啟用 HTTPS 重定向
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("DevCors");
 }
 else
 {
-    app.UseHttpsRedirection();  // 正式環境啟用 HTTPS
     app.UseCors("ProdCors");
 }
+
+app.UseRouting();
+app.UseAuthorization();
+app.MapControllers();
 
 var summaries = new[]
 {
