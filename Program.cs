@@ -29,7 +29,7 @@ else
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("ProdCors",
-            policy => policy.WithOrigins("http://50.16.247.40:3000")  // 正式環境網址
+            policy => policy.WithOrigins("https://leeterview.net")  // 正式環境網址
                             .AllowAnyHeader()
                             .AllowAnyMethod());
     });
