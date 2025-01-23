@@ -9,6 +9,9 @@ RUN dotnet restore
 # 安裝 dotnet-ef 工具
 RUN dotnet tool install --global dotnet-ef
 
+# 將 dotnet-ef 工具的安裝路徑加入到 PATH
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 # 在建置階段執行資料庫遷移
 RUN dotnet ef database update
 
