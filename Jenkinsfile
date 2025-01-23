@@ -23,7 +23,7 @@ pipeline {
             steps {
                 script {
                     dir('/home/ubuntu/leeterview/leeterview-backend') {
-                        withCredentials([sshUserPrivateKey(credentailsId: 'git-ssh-credentials', keyFileVariable: 'SSH_KEY')]) {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'git-ssh-credentials', keyFileVariable: 'SSH_KEY')]) {
                             sh '''
                                 eval $(ssh-agent -s)
                                 ssh-add ${SSH_KEY}
