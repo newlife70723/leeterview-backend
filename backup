@@ -1,0 +1,1 @@
+"DefaultConnection": "Server=leeterview-db.cbsu2k0ywflm.us-east-1.rds.amazonaws.com,1433;Database=LeeterviewDB;User Id=admin;Password=ADMIN0723;TrustServerCertificate=True;"
