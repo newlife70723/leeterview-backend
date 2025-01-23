@@ -1,4 +1,3 @@
-  GNU nano 7.2                                                                                  Dockerfile                                                                                           
 # 使用 .NET SDK 作為基底映像
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-and-run
 
