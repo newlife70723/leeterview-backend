@@ -21,6 +21,9 @@ ENV ASPNETCORE_ENVIRONMENT=$ENVIRONMENT
 # 開放 API 服務埠口
 EXPOSE 5000
 
+# 在容器啟動時執行遷移
+RUN dotnet ef database update
+
 # 啟動後端 API
 ENTRYPOINT ["dotnet", "leeterview-backend.dll"]
 
