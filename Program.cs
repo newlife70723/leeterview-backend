@@ -59,7 +59,7 @@ builder.Logging.AddConsole(); // 啟用 Console 日誌
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 🔥 自動切換環境設定
+// 自動切換環境設定
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddCors(options =>

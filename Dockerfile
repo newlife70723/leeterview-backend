@@ -1,5 +1,4 @@
-# 使用 .NET SDK 作為基底映像
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-and-run
+ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-and-run
 
 # 設定工作目錄
 WORKDIR /app
