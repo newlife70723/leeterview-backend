@@ -1,22 +1,26 @@
- FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-and-run
-
-# 設定工作目錄
+# 建置階段
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /app
 
-# 安裝 dotnet-ef 工具
-RUN dotnet tool install --global dotnet-ef
-
-# 確保工具可用，將其添加到 PATH
-ENV PATH="${PATH}:/root/.dotnet/tools"
-
-# 複製專案檔到容器
+# 複製檔案並還原相依套件
 COPY . ./
-
-# 還原依賴
 RUN dotnet restore
+RUN dotnet publish -c Release -o out
 
-# 建置專案
-RUN dotnet build -c Release --no-restore
+# 執行階段
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /app
 
-# 遷移資料庫並執行應用程式
-CMD ["sh", "-c", "dotnet ef database update && dotnet run --no-build"]
+# 複製建置結果
+COPY --from=build /app/out .
+
+# 🔥 根據環境自動切換（預設 Development）
+ARG ENVIRONMENT=Development
+ENV ASPNETCORE_ENVIRONMENT=$ENVIRONMENT
+
+# 開放 API 服務埠口
+EXPOSE 5000
+
+# 啟動後端 API
+ENTRYPOINT ["dotnet", "leeterview-backend.dll"]
+
