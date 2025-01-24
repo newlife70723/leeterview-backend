@@ -3,8 +3,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 讀取 Redis 連接字串，如果為 null，則使用預設值
+var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
+var redis = ConnectionMultiplexer.Connect(redisConnectionString);
+
+// 注入 Redis 連接
+builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
 
 // 讀取密鑰
 var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("leeterviewApiSuperLongKey1234567890123456"));
