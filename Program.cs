@@ -7,8 +7,32 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 載入 appsettings.json 並加入環境變數
+var configurationBuilder = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+// 解析佔位符
+var configuration = configurationBuilder.Build();
+foreach (var (key, value) in configuration.AsEnumerable())
+{
+    if (value != null && value.Contains("${"))
+    {
+        configuration[key] = ReplacePlaceholders(value, Environment.GetEnvironmentVariables());
+    }
+}
+
+// 替換後的設定應用到 Builder
+builder.Configuration.AddConfiguration(configuration);
+
 // 讀取 Redis 連接字串，如果為 null，則使用預設值
 var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
+
+// 打印 Redis 連接字串
+var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Redis Connection String: {RedisConnectionString}", redisConnectionString);
+
+// 連接 Redis
 var redis = ConnectionMultiplexer.Connect(redisConnectionString);
 
 // 注入 Redis 連接
@@ -34,31 +58,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-
-// 載入 appsettings.json 並加入環境變數
-var configurationBuilder = new ConfigurationBuilder()
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddEnvironmentVariables();
-
-// 解析佔位符
-var configuration = configurationBuilder.Build();
-foreach (var (key, value) in configuration.AsEnumerable())
-{
-    if (value != null && value.Contains("${"))
-    {
-        configuration[key] = ReplacePlaceholders(value, Environment.GetEnvironmentVariables());
-    }
-}
-
-// 替換後的設定應用到 Builder
-builder.Configuration.AddConfiguration(configuration);
-
-// 註冊控制器服務
-builder.Services.AddControllers(); // 註冊控制器
-
-// ✅ 加入 Swagger/OpenAPI 支援
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 // 使用解析後的資料庫連線字串
 var connectionString = configuration.GetConnectionString("DefaultConnection");
@@ -116,6 +115,13 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    context.Database.Migrate();
 }
 
 // 啟用身份驗證中介軟體
