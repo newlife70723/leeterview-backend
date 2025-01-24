@@ -28,10 +28,6 @@ builder.Configuration.AddConfiguration(configuration);
 // 讀取 Redis 連接字串，如果為 null，則使用預設值
 var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
 
-// 打印 Redis 連接字串
-var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-logger.LogInformation("Redis Connection String: {RedisConnectionString}", redisConnectionString);
-
 // 連接 Redis
 var redis = ConnectionMultiplexer.Connect(redisConnectionString);
 
