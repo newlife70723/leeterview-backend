@@ -20,6 +20,14 @@ namespace LeeterviewBackend.Services
             var secretKey = awsOptions["SecretKey"];
             var region = awsOptions["Region"];
 
+            // 打印配置值
+            Console.WriteLine("AWS Configuration:");
+            Console.WriteLine($"Access Key: {awsOptions["AccessKey"]}");
+            Console.WriteLine($"Secret Key: {awsOptions["SecretKey"]}");
+            Console.WriteLine($"Region: {awsOptions["Region"]}");
+            Console.WriteLine($"Bucket Name: {_bucketName}");
+
+
             // 初始化 S3 客戶端
             _s3Client = new AmazonS3Client(
                 accessKey,
