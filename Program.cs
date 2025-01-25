@@ -4,10 +4,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using StackExchange.Redis;
+using LeeterviewBackend.Services; // 替換為正確命名空間
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // 載入 appsettings.json 並加入環境變數
 var configurationBuilder = new ConfigurationBuilder()
@@ -38,6 +41,8 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
 
 // 讀取密鑰
 var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("leeterviewApiSuperLongKey1234567890123456"));
+
+builder.Services.AddSingleton<S3Service>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
