@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 
 namespace LeeterviewBackend.Controllers
 {
@@ -138,5 +139,212 @@ namespace LeeterviewBackend.Controllers
 
             return Ok(successResponse);
         }
+
+        [Authorize]
+        [HttpPut("UpdateAvatar")]
+        public async Task<IActionResult> UpdateAvatar([FromBody] UpdateAvatarRequest request)
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Status = 401,
+                    Message = "Unauthorized: Invalid token",
+                    Data = null,
+                    Error = new { Code = "INVALID_TOKEN", Details = "Authorization failed" }
+                });
+            }
+
+            var user = await _context.Users.FindAsync(int.Parse(userId));
+            if (user == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Status = 404,
+                    Message = "User not found",
+                    Data = null,
+                    Error = new { Code = "USER_NOT_FOUND", Details = "No user matches the provided ID" }
+                });
+            }
+
+            user.AvatarUrl = request.AvatarUrl;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new ApiResponse<object>
+                {
+                    Status = 200,
+                    Message = "Avatar updated successfully",
+                    Data = new { Code = "AVATAR_UPDATED", Details = "User avatar updated successfully" },
+                    Error = null
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Status = 500,
+                    Message = "An error occurred while updating the avatar",
+                    Data = null,
+                    Error = new { Code = "SERVER_ERROR", Details = ex.Message }
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPut("UpdateUserProfile")]
+        public async Task<IActionResult> UpdateUserProfile([FromBody] UpdateUserProfileRequest request)
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Status = 401,
+                    Message = "Unauthorized: Invalid token",
+                    Data = null,
+                    Error = new { Code = "INVALID_TOKEN", Details = "Authorization failed" }
+                });
+            }
+
+            var user = await _context.Users.FindAsync(int.Parse(userId));
+            if (user == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Status = 404,
+                    Message = "User not found",
+                    Data = null,
+                    Error = new { Code = "USER_NOT_FOUND", Details = "No user matches the provided ID" }
+                });
+            }
+
+            // 更新用戶資料（不包括 Username）
+            if (!string.IsNullOrEmpty(request.Email))
+            {
+                user.Email = request.Email;
+            }
+
+            if (!string.IsNullOrEmpty(request.Bio))
+            {
+                user.Bio = request.Bio;
+            }
+
+            if (!string.IsNullOrEmpty(request.Location))
+            {
+                user.Location = request.Location;
+            }
+
+            user.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new ApiResponse<object>
+                {
+                    Status = 200,
+                    Message = "User profile updated successfully",
+                    Data = new
+                    {
+                        Code = "PROFILE_UPDATED",
+                        Details = "User profile updated successfully",
+                        User = new
+                        {
+                            user.Email,
+                            user.Bio,
+                            user.Location,
+                            user.UpdatedAt
+                        }
+                    },
+                    Error = null
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Status = 500,
+                    Message = "Failed to update user profile",
+                    Data = null,
+                    Error = new { Code = "UPDATE_FAILED", Details = ex.Message }
+                });
+            }
+        }
+
+
+        [Authorize]
+        [HttpGet("GetUserProfile")]
+        public async Task<IActionResult> GetUserProfile()
+        {
+            try
+            {
+                // 從 Token 中解析出用戶 ID
+                var userId = User.FindFirst("userId")?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new ApiResponse<object>
+                    {
+                        Status = 401,
+                        Message = "Unauthorized: Invalid token",
+                        Data = null,
+                        Error = new { Code = "INVALID_TOKEN", Details = "Authorization failed" }
+                    });
+                }
+
+                // 從資料庫中查詢用戶
+                var user = await _context.Users.FindAsync(int.Parse(userId));
+                if (user == null)
+                {
+                    return NotFound(new ApiResponse<object>
+                    {
+                        Status = 404,
+                        Message = "User not found",
+                        Data = null,
+                        Error = new { Code = "USER_NOT_FOUND", Details = "No user matches the provided ID" }
+                    });
+                }
+
+                // 返回用戶基本信息和統計數據
+                var userProfile = new
+                {
+                    user.AvatarUrl,
+                    user.Email,
+                    user.Location,
+                    user.Bio,
+                    TotalPosts = await _context.Articles.CountAsync(a => a.UserId == user.Id),
+                    TotalLikes = await _context.Articles
+                        .Where(a => a.UserId == user.Id)
+                        .SumAsync(a => a.Like)
+                };
+
+                return Ok(new ApiResponse<object>
+                {
+                    Status = 200,
+                    Message = "User profile retrieved successfully",
+                    Data = new
+                    {
+                        Code = "USER_PROFILE_RETRIEVED",
+                        Details = "User profile retrieved successfully",
+                        Profile = userProfile
+                    },
+                    Error = null
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Status = 500,
+                    Message = "Failed to retrieve user profile",
+                    Data = null,
+                    Error = new { Code = "SERVER_ERROR", Details = ex.Message }
+                });
+            }
+        }
+
+
     }
 }
