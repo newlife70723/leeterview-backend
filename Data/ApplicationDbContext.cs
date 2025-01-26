@@ -13,6 +13,7 @@ namespace LeeterviewBackend.Data
         // 定義資料表
         public DbSet<User> Users { get; set; }
         public DbSet<ArticleLabel> ArticleLabels { get; set; }
+        public DbSet<Article> Articles { get; set; }
     }
 }
 

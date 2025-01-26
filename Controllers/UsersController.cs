@@ -63,10 +63,13 @@ namespace LeeterviewBackend.Controllers
                 return Unauthorized(errorResponse);
             }
 
+            var userId = existingUser.Id;
+
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, existingUser.Username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("userId", userId.ToString())
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("leeterviewApiSuperLongKey1234567890123456"));

@@ -4,6 +4,8 @@ using LeeterviewBackend.Models;
 using Microsoft.AspNetCore.Mvc; 
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace LeeterviewBackend.Controllers
 {
@@ -13,65 +15,38 @@ namespace LeeterviewBackend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConnectionMultiplexer _redis;
+        private readonly ICategoryRepository _categoryRepository;
 
-        public ArticlesController(ApplicationDbContext context, IConnectionMultiplexer redis) 
+        public ArticlesController(ApplicationDbContext context, IConnectionMultiplexer redis, ICategoryRepository categoryRepository) 
         {
             _context = context;
             _redis = redis;
+            _categoryRepository = categoryRepository;
         }
 
         [HttpGet("GetCategories")]
         public async Task<IActionResult> GetCategories()
         {
-            var db = _redis.GetDatabase();
-            var redisKey = "article_labels";
+             var categories = await _categoryRepository.GetCategoriesAsync();
 
-            var cachedLabels = await db.ListRangeAsync(redisKey);
-
-            if (cachedLabels.Length > 0)
+            if (categories == null || !categories.Any())
             {
-                // Redis 中有資料，直接返回 Redis 中的資料
-                var labels = cachedLabels.Select(label => label.ToString()).ToList();
-
-                var redisSuccessResponse = new ApiResponse<object>
-                {
-                    Status = 200,
-                    Message = "Get labels success from Redis",
-                    Data = new { Code = "GET_LABELS_SUCCESS", Details = "Get labels success from Redis", Data = labels },
-                    Error = null,
-                };
-
-                return Ok(redisSuccessResponse);
-            }
-
-            var labelsFromDb = await _context.ArticleLabels
-                                .Select(label => label.Label)
-                                .ToListAsync();
-
-            if (labelsFromDb == null || !labelsFromDb.Any())
-            {
-                var response = new ApiResponse<object>
+                return NotFound(new ApiResponse<object>
                 {
                     Status = 404,
-                    Message = "No labels found",
+                    Message = "No categories found",
                     Data = null,
-                    Error = new { Code = "NO_LABELS_FOUND", Details = "No labels found" }
-                };
-                return NotFound(response);
+                    Error = new { Code = "NO_CATEGORIES_FOUND", Details = "No categories found" }
+                });
             }
 
-            // save in Redis
-            await db.ListRightPushAsync(redisKey, labelsFromDb.Select(label => (RedisValue)label).ToArray());
-
-            var successResponse = new ApiResponse<object>
+            return Ok(new ApiResponse<object>
             {
                 Status = 200,
-                Message = "Get labels success",
-                Data = new { Code = "GET_LABELS_SUCCESS", Details = "Get labels success", Labels = labelsFromDb },
-                Error = null,
-            };
-
-            return Ok(successResponse); 
+                Message = "Categories retrieved successfully",
+                Data = new { Code = "GET_CATEGORY_SUCCESS", Details = "Categories retrieved successfully", Categories = categories },
+                Error = null
+            });
         }
 
         [HttpPost("CreateNewLabel")]
@@ -137,6 +112,73 @@ namespace LeeterviewBackend.Controllers
             };
             return Ok(successResponse);
         }
-    }
 
+        [Authorize]
+        [HttpPost("CreateNewArticle")]
+        public async Task<IActionResult> CreateNewArticle([FromBody] ArticleRequest request)
+        {
+            var userIdString = User.FindFirst("userId")?.Value;
+            
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var userId))
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Status = 401,
+                    Message = "Unauthorized: Invalid token",
+                    Data = null,
+                    Error = new { Code = "INVALID_TOKEN", Details = "Authorization failed" }
+                });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new ApiResponse<object>
+                {
+                    Status = 400,
+                    Message = string.Join(", ", errors),
+                    Data = null,
+                    Error = new { Code = "VALIDATION_FAILED", Details = "Invalid input data" }
+                });
+            }
+
+            var validCategories = await _categoryRepository.GetCategoriesAsync();
+            if (!validCategories.Contains(request.Category))
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Status = 400,
+                    Message = "Invalid category",
+                    Data = null,
+                    Error = new { Code = "INVALID_CATEGORY", Details = "The provided category is not valid" }
+                });
+            }
+
+            var newArticle = new Article
+            {
+                UserId = userId,
+                Title = request.Title,
+                Category = request.Category,
+                Content = request.Content,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Like = 0
+            };
+
+            await _context.Articles.AddAsync(newArticle);
+            await _context.SaveChangesAsync();
+
+            return Ok(new ApiResponse<object>
+            {
+                Status = 200,
+                Message = "Article created successfully",
+                Data = new { Code = "ARTICLE_CREATED_SUCCESSFULLY", Details = "Article created successfully", Data = newArticle },
+                Error = null
+            });
+        }
+    }
 }
