@@ -180,5 +180,135 @@ namespace LeeterviewBackend.Controllers
                 Error = null
             });
         }
+
+        [HttpGet("{postId}")]
+        public async Task<IActionResult> GetArticleById(int postId)
+        {
+            var article = await _context.Articles
+                .FirstOrDefaultAsync(a => a.Id == postId);
+
+            if (article == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Status = 404,
+                    Message = "Article not found",
+                    Data = null,
+                    Error = new { Code = "ARTICLE_NOT_FOUND", Details = $"No article found with ID: {postId}" }
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Status = 200,
+                Message = "Article retrieved successfully",
+                Data = new 
+                {
+                    Code = "ARTICLE_RETRIEVE_SUCCESS",
+                    Details = "Article retrieved successfully",
+                    Article = article
+                },
+                Error = null
+            });
+        }
+
+        [HttpGet("GetPosts")]
+        public async Task<IActionResult> GetPosts([FromQuery] ArticleSearchCriteria criteria)
+        {
+            try
+            {
+                IQueryable<Article> query = _context.Articles;
+
+                if (!string.IsNullOrEmpty(criteria.Category))
+                {
+                    query = query.Where(a => a.Category.ToLower() == criteria.Category.ToLower());
+                }
+
+                if (criteria.UserId.HasValue)
+                {
+                    query = query.Where(a => a.UserId == criteria.UserId.Value);
+                }
+
+                if (criteria.CreatedAfter.HasValue)
+                {
+                    query = query.Where(a => a.CreatedAt > criteria.CreatedAfter.Value);
+                }
+
+                if (!string.IsNullOrEmpty(criteria.TitleKeyword))
+                {
+                    query = query.Where(a => a.Title.Contains(criteria.TitleKeyword));
+                }
+
+                if (!string.IsNullOrEmpty(criteria.SortBy))
+                {
+                    query = criteria.SortBy.ToLower() switch
+                    {
+                        "like" => criteria.IsDescending ? query.OrderByDescending(a => a.Like) : query.OrderBy(a => a.Like),
+                        "date" => criteria.IsDescending ? query.OrderByDescending(a => a.CreatedAt) : query.OrderBy(a => a.CreatedAt),
+                        _ => query
+                    };
+                }
+
+                int totalRecords = await query.CountAsync();
+                int totalPages = (int)Math.Ceiling(totalRecords / (double)criteria.PageSize);
+
+                query = query
+                    .Skip((criteria.PageNumber - 1) * criteria.PageSize)
+                    .Take(criteria.PageSize);
+
+                var articles = await query
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Title,
+                        a.Category,
+                        a.CreatedAt,
+                        a.Like
+                    })
+                    .ToListAsync();
+
+                if (!articles.Any())
+                {
+                    return NotFound(new ApiResponse<object>
+                    {
+                        Status = 404,
+                        Message = "No articles found.",
+                        Data = null,
+                        Error = new { Code = "NO_ARTICLES_FOUND", Details = "No articles match the criteria." }
+                    });
+                }
+
+                return Ok(new ApiResponse<object>
+                {
+                    Status = 200,
+                    Message = "Articles retrieved successfully.",
+                    Data = new
+                    {
+                        Code = "ARTICLES_RETRIEVED_SUCCESS",
+                        Details = "Articles retrieved successfully.",
+                        Articles = articles,
+                        Pagination = new
+                        {
+                            CurrentPage = criteria.PageNumber,
+                            PageSize = criteria.PageSize,
+                            TotalPages = totalPages,
+                            TotalRecords = totalRecords
+                        }
+                    },
+                    Error = null
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Status = 500,
+                    Message = "An error occurred while retrieving articles.",
+                    Data = null,
+                    Error = new { Code = "SERVER_ERROR", Details = ex.Message }
+                });
+            }
+        }
+
     }
 }
