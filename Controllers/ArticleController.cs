@@ -184,6 +184,9 @@ namespace LeeterviewBackend.Controllers
         [HttpGet("{postId}")]
         public async Task<IActionResult> GetArticleById(int postId)
         {
+            var userIdClaim = User.FindFirst("userId")?.Value;    
+            int? currentUserId = string.IsNullOrEmpty(userIdClaim) ? null : int.Parse(userIdClaim);
+
             var article = await _context.Articles
                 .FirstOrDefaultAsync(a => a.Id == postId);
 
@@ -198,6 +201,8 @@ namespace LeeterviewBackend.Controllers
                 });
             }
 
+            bool isEditable = currentUserId.HasValue && article.UserId == currentUserId.Value;
+
             return Ok(new ApiResponse<object>
             {
                 Status = 200,
@@ -206,7 +211,16 @@ namespace LeeterviewBackend.Controllers
                 {
                     Code = "ARTICLE_RETRIEVE_SUCCESS",
                     Details = "Article retrieved successfully",
-                    Article = article
+                    Article = new
+                    {
+                        article.Id,
+                        article.Title,
+                        article.Category,
+                        article.Content,
+                        article.CreatedAt,
+                        article.Like,
+                        Editable = isEditable
+                    }
                 },
                 Error = null
             });
@@ -310,5 +324,79 @@ namespace LeeterviewBackend.Controllers
             }
         }
 
+
+        [Authorize]
+        [HttpPut("EditPost")]
+        public async Task<IActionResult> EditPost([FromBody] UpdateArticleRequest request)
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Status = 401,
+                    Message = "Unauthorized: Invalid token",
+                    Data = null,
+                    Error = new { Code = "INVALID_TOKEN", Details = "Authorization failed" }
+                });
+            }
+
+            var userIdInt = int.Parse(userId);
+            var article = await _context.Articles.FirstOrDefaultAsync(a => a.Id == request.Id);
+
+            if (article == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Status = 404,
+                    Message = "Article not found",
+                    Data = null,
+                    Error = new { Code = "ARTICLE_NOT_FOUND", Details = "Article not found" }
+                });
+            }
+
+            if (article.UserId != userIdInt)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Status = 403,
+                    Message = "You are not authorized to edit this article",
+                    Data = null,
+                    Error = new { Code = "FORBIDDEN", Details = "Unauthorized access to edit this article" }
+                });
+            }
+
+            if (!string.IsNullOrEmpty(request.Title))
+            {
+                article.Title = request.Title;
+            }
+
+            if (!string.IsNullOrEmpty(request.Category))
+            {
+                article.Category = request.Category;
+            }
+
+            if (!string.IsNullOrEmpty(request.Content))
+            {
+                article.Content = request.Content;
+            }
+
+            article.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new ApiResponse<object>
+            {
+                Status = 200,
+                Message = "Edit article successfully",
+                Data = new
+                {
+                    Code = "EDIT_ARTICLE_SUCCESS",
+                    Details = "Article updated successfully",
+                    Article = article
+                },
+                Error = null
+            });
+        }
     }
 }

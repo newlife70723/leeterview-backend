@@ -2,6 +2,7 @@ namespace LeeterviewBackend.DTOs
 {
     public class ArticleSearchCriteria
     {
+        public int? Id { get; set; }
         public string? Category { get; set; }
         public int? UserId { get; set; }
         public DateTime? CreatedAfter { get; set; }
