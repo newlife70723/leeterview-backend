@@ -398,5 +398,58 @@ namespace LeeterviewBackend.Controllers
                 Error = null
             });
         }
+
+        [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePost(int id)
+        {
+            var userIdString = User.FindFirst("userId")?.Value;
+            if (string.IsNullOrEmpty(userIdString))
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Status = 401,
+                    Message = "Unauthorized: Invalid token",
+                    Data = null,
+                    Error = new { Code = "INVALID_TOKEN", Details = "Authorization failed" }
+                });
+            };
+
+            var userId = int.Parse(userIdString);
+
+            var article = await _context.Articles.FirstOrDefaultAsync(a => a.Id == id);
+            if (article == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Status = 404,
+                    Message = "Article not found",
+                    Data = null,
+                    Error = new { Code = "ARTICLE_NOT_FOUND", Details = "Article not found" }
+                });
+            }
+
+            if (article.UserId != userId)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                      Status = 403,
+                    Message = "You are not authorized to delete this article",
+                    Data = null,
+                    Error = new { Code = "FORBIDDEN", Details = "Unauthorized access to delete this article" }
+                });
+            }
+
+            _context.Articles.Remove(article);
+            await _context.SaveChangesAsync();
+
+            return Ok(new ApiResponse<object>
+            {
+                Status = 200,
+                Message = "Article deleted successfully",
+                Data = new { Code = "ARTICLE_DELETED_SUCCESS", Details = "The article has been deleted." },
+                Error = null
+            });
+        }
     }
 }

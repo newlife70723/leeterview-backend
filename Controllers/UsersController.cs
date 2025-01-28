@@ -90,7 +90,7 @@ namespace LeeterviewBackend.Controllers
             {
                 Status = 200,
                 Message = "Login Success",
-                Data = new { Code = "LOGIN_SUCCESS", Details = "Login success!", Token = jwtToken }
+                Data = new { Code = "LOGIN_SUCCESS", Details = "Login success!", Token = jwtToken, UserId = userId }
             };
 
             return Ok(successResponse);
