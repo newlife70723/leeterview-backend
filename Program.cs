@@ -4,48 +4,37 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using StackExchange.Redis;
-using LeeterviewBackend.Services; // 替換為正確命名空間
+using LeeterviewBackend.Services;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 
-// 載入 appsettings.json 並加入環境變數
+// load appsettings.json 
 var configurationBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-// 解析佔位符
-var configuration = configurationBuilder.Build();
-foreach (var (key, value) in configuration.AsEnumerable())
-{
-    if (value != null && value.Contains("${"))
-    {
-        configuration[key] = ReplacePlaceholders(value, Environment.GetEnvironmentVariables());
-    }
-}
-
-// 替換後的設定應用到 Builder
-builder.Configuration.AddConfiguration(configuration);
-
-// 讀取 Redis 連接字串，如果為 null，則使用預設值
+// Redis
 var redisConnectionString = builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379";
-
-// 連接 Redis
 var redis = ConnectionMultiplexer.Connect(redisConnectionString);
-
-// 注入 Redis 連接
 builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
 
-// 讀取密鑰
-var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("leeterviewApiSuperLongKey1234567890123456"));
-
+// S3 service
 builder.Services.AddSingleton<S3Service>();
 
+// JWT
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("JWT_SECRET_KEY is not set.");
+}
+
+var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -53,100 +42,77 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuer = true,
             ValidateAudience = true,
-            ValidateLifetime = true,  // 檢查過期時間
-            ValidateIssuerSigningKey = true,  // 檢查簽名密鑰
-            IssuerSigningKey = jwtKey,  // 使用的簽名密鑰
-            ClockSkew = TimeSpan.Zero,  // 設置過期時間容錯
-            ValidIssuer = "Leeterview", // 設定發行者
-            ValidAudience = "Leeterview API" // 設定受眾
+            ValidateLifetime = true, 
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = jwtKey,
+            ClockSkew = TimeSpan.Zero,
+            ValidIssuer = "Leeterview",
+            ValidAudience = "Leeterview API"
         };
     });
 
 builder.Services.AddAuthorization();
 
-// 使用解析後的資料庫連線字串
-var connectionString = configuration.GetConnectionString("DefaultConnection");
-builder.Logging.AddConsole(); // 啟用 Console 日誌
+// load database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Logging.AddConsole();
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
-
-// 自動切換環境設定
-if (builder.Environment.IsDevelopment())
+// change cors setting
+var corsAllowedOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS") ?? "*";
+builder.Services.AddCors(options =>
 {
-    builder.Services.AddCors(options =>
+    options.AddPolicy("DefaultCorsPolicy", policy =>
     {
-        options.AddPolicy("DevCors",
-            policy => policy.AllowAnyOrigin() // 開發環境允許所有來源
-                            .AllowAnyHeader()
-                            .AllowAnyMethod());
+        if (corsAllowedOrigins == "*")
+        {
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            var origins = corsAllowedOrigins.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+        }
     });
-
-    Console.WriteLine("🚀 正在運行【開發環境】");
-}
-else
-{
-    builder.Services.AddCors(options =>
-    {
-        options.AddPolicy("ProdCors",
-            policy => policy.WithOrigins("https://leeterview.net") // 正式環境僅允許前端網域
-                            .AllowAnyHeader()
-                            .AllowAnyMethod());
-    });
-
-    Console.WriteLine("🚀 正在運行【正式環境】");
-}
-
-var app = builder.Build();
-
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("Database connection string: {ConnectionString}", connectionString);
 });
 
-// 🔥 啟用 CORS
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("DevCors");
-}
-else
-{
-    app.UseCors("ProdCors");
-}
 
-// ✅ 啟用 Swagger（僅在開發環境）
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// build application
+var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<ApplicationDbContext>();
-    context.Database.Migrate();
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        // check database exist
+        var databaseCreator = context.Database.GetService<IRelationalDatabaseCreator>();
+
+        if (!databaseCreator.Exists())
+        {
+            logger.LogWarning("Database doesn't exist, building...");
+            databaseCreator.Create();
+            logger.LogInformation("Database build successfully!");
+        }
+
+        // exec migration
+        context.Database.Migrate();
+        logger.LogInformation("Database update succefully!");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Database update failed: {Message}", ex.Message);
+        throw;
+    }
 }
 
-// 啟用身份驗證中介軟體
+app.UseCors("DefaultCorsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
 
-// Helper 方法
-static string ReplacePlaceholders(string input, System.Collections.IDictionary envVars)
-{
-    foreach (var key in envVars.Keys)
-    {
-        var placeholder = $"${{{key}}}";
-        if (input.Contains(placeholder))
-        {
-            input = input.Replace(placeholder, envVars[key]?.ToString());
-        }
-    }
-    return input;
-}
+
